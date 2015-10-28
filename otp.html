@@ -1,0 +1,463 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8" />
+<meta name="description" content="Simple encryption/decryption using a one-time-pad." />
+<meta name="author" content="http://google.com/+JoelElliott27" />
+<title>One Time Pad</title>
+<!--
+Source code is hosted at [GitHub](github.com/abamacus/otp).
+
+Compatibility
+=============
+This was tested with the following browsers:
+- Google Chrome, version 46.0.2490.80 m
+- Firefox, version 41.0.2
+- Internet Explorer, version 11.0.9600.18059CO
+
+Credits
+=======
+Written by Joel Elliott in October, 2015.
+Thanks to:
+- [Wikipedia](en.Wikipedia.org), for initial reference on the "One Time Pad"
+- [Security Now](twit.tv/sn) podcast, for increasing my interest in cryptography
+- [Stack Overflow](stackoverflow.com), for answers to lots of javascript questions
+- [World Wide Web Consortium](w3c.org), for good references on all things web
+- [Google](google.com/search?q=google+chrome), for helping me find *everything*, and making a great browser to debug in
+
+-->
+<style>
+body{
+ background-color: #DFDFDF;
+ font-family: 'Consolas', 'Courier New', 'Lucida Console', 'Monospace';
+}
+textarea {
+ font-size: 16px;
+ line-height: 1em;
+}
+#uiOutput {
+ background-color: #DFDFDF;
+}
+body > div {
+ display: inline-block;
+}
+
+.hoverable > div {
+ display: none;
+}
+.hoverable:hover > div {
+ display: initial;
+ position: absolute;
+ background-color: #EFEFEF;
+ background-color: rgba(255, 255, 255, 0.75);
+ border: 1px solid #000;
+ padding: 5px;
+ max-width: 20em;
+}
+
+.help::before {
+ content: "?";
+}
+.help {
+ text-align: center;
+ display: inline-block;
+ min-width: 1em;
+ background: #FFFFFF;
+ border: 1px solid #000000;
+ border-radius: 1em;
+}
+
+input[type="radio"] + label {
+ color: #7F7F7F;
+}
+input[type="radio"]:checked + label {
+ color: initial;
+}
+</style>
+</head>
+
+<body>
+
+<div>
+ <span class="hoverable help"><div>
+   - The Input is the original "plain text" message (to encrypt), or the encrypted message (to decrypt).
+   <br/>
+   - The Input may only contain values that are in the selected Alphabet.
+  </div></span>
+ <label>Input</label>
+ <span id="uiInputSize"></span> characters
+ <button type="button" onclick="byId('uiInput').value = '';">Clear</button>
+ <br/>
+ <input id="uiInputFile" type="file" />
+ <button id="uiUploadInput" type="button">Upload</button>
+ <br/>
+ <textarea id="uiInput" rows="10" cols="50">This is an example input message.
+To demonstrate / test:
+1) click Generate Key
+2) copy the Output text
+3) click "Clear" for the Input area
+4) paste into the Input area
+5) select Decrypt</textarea>
+</div>
+<div>
+ <label>Alphabet</label>
+ <span id="uiAlphabetSize"></span> characters
+ <button id="uiSortAlphabet" type="button">Sort</button>
+ <select id="uiAlphabetSet">
+  <option value="26">Classic (26 letters)</option>
+  <option value="97">Keyboard (base 97)</option>
+  <option value="64">MIME (base 64)</option>
+  <option value="16">Hex (base 16)</option>
+  <option value="10">Numeric (base 10)</option>
+  <option value="">Custom</option>
+ </select>
+ <br/>
+ <textarea id="uiAlphabet" rows="10" cols="50"></textarea>
+</div>
+
+<div>
+ <span class="hoverable help"><div>
+   - The Key should be a perfectly random distribution of all of the characters in the "Alphabet".
+   <br/>
+   - The Key must be at least as long as the input message.
+   <br/>
+   - NOTE: the Output will be as long as the key.
+  </div></span>
+ <label>Key</label>
+ <span id="uiKeySize"></span> characters
+ <button type="button" onclick="byId('uiKey').value = '';">Clear</button>
+ <button class="hoverable" id="uiGenerateKey" type="button">
+  Generate Key
+  <div>
+   WARNING: this key generation is not cryptographically secure
+  </div>
+ </button>
+ <br/>
+ <input id="uiKeyFile" type="file" />
+ <button id="uiUploadKey" type="button">Upload</button>
+ <br/>
+ <textarea id="uiKey" rows="10" cols="50">
+ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789
+This is not a secure key.
+ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789
+This is not a secure key.
+ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789
+This is not a secure key.
+</textarea>
+</div>
+<div>
+ <label>Output</label>
+ <input type="radio" id="uiEncrypt" name="toEncryptOrDecrypt" onchange="encrypt();" checked="checked" /><label for="uiEncrypt">Encrypt</label>
+ <input type="radio" id="uiDecrypt" name="toEncryptOrDecrypt" onchange="encrypt();" /><label for="uiDecrypt">Decrypt</label>
+ <button id="uiDownloadOutput" type="button">Download</button>
+ <br/>
+ <textarea id="uiOutput" rows="10" cols="50" readonly="true"></textarea>
+</div>
+
+</body>
+
+<script>
+function byId(id){
+ return document.getElementById(id);
+}
+function encrypt() {
+ var input = byId('uiInput').value;
+ var key = byId('uiKey').value;
+ var alphabet = byId('uiAlphabet').value;
+ var encrypt = byId('uiEncrypt').checked;
+ try {
+  byId('uiOutput').value = cipher(input,key,alphabet,encrypt);
+ } catch (e) {
+  byId('uiOutput').value = e.name + '\n' + e.message;
+ }
+}
+function updateInput() {
+ byId('uiInputSize').textContent = byId('uiInput').value.length;
+ encrypt();
+}
+function updateKey() {
+ byId('uiKeySize').textContent = byId('uiKey').value.length;
+ encrypt();
+}
+function generateKey() {
+
+ function rnd(n){ return Math.floor((Math.random() * n)); }
+ var alphabet = byId('uiAlphabet').value;
+ var inputLength = byId('uiInput').value.length;
+ var keyArray = new Array();
+ for (var i = 0 ; i < inputLength ; ++i ){
+  var r = rnd(alphabet.length);
+  keyArray[i] = alphabet[r];
+ }
+
+ byId('uiKey').value = keyArray.join('');
+ updateKey();
+}
+function updateAlphabet() {
+ function onlyUnique(value, index, self) { return self.indexOf(value) === index; }
+ var alphabet = byId('uiAlphabet').value;
+ // keep only distinct values
+ alphabet = alphabet.split('').filter(onlyUnique).join('');
+ if (byId('uiAlphabet').value != alphabet)
+  byId('uiAlphabet').value = alphabet;
+ byId('uiAlphabetSize').textContent = alphabet.length;
+ switch (alphabet) {
+  case ALPHABET_26:
+   byId('uiAlphabetSet').selectedIndex = 0;
+   break;
+  case ALPHABET_97:
+   byId('uiAlphabetSet').selectedIndex = 1;
+   break;
+  case ALPHABET_64:
+   byId('uiAlphabetSet').selectedIndex = 2;
+   break;
+  case ALPHABET_16:
+   byId('uiAlphabetSet').selectedIndex = 3;
+   break;
+  case ALPHABET_10:
+   byId('uiAlphabetSet').selectedIndex = 4;
+   break;
+  default:
+   byId('uiAlphabetSet').selectedIndex = 5;
+   break;
+ }
+}
+function sortAlphabet() {
+ var alphabet = byId('uiAlphabet').value;
+ alphabet = alphabet.split('').sort().join('');
+ byId('uiAlphabet').value = alphabet;
+ updateAlphabet();
+}
+var ALPHABET_26 = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+var ALPHABET_97 = ' ABCDEFGHIJKLMNOPQRSTUVWXYZ' + '\n'
+                + '0123456789abcdefghijklmnopqrstuvwxyz!@#$%^&*()_+-=[]{}\|;:'
+                + "'" + '",.<>/?`~	';
+var ALPHABET_64 = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/';
+var ALPHABET_16 = '0123456789ABCDEF';
+var ALPHABET_10 = '0123456789';
+function getSelectedAlphabet() {
+ var i = byId('uiAlphabetSet').selectedIndex;
+ var options = byId('uiAlphabetSet').getElementsByTagName('option');
+ var selectedOptionValue = options[i].value;
+ switch (selectedOptionValue) {
+  case '26':
+   return ALPHABET_26;
+  case '97':
+   return ALPHABET_97;
+  case '64':
+   return ALPHABET_64;
+  case '16':
+   return ALPHABET_16;
+  case '10':
+   return ALPHABET_10;
+  case '':
+   // whatever the existing value is
+   return byId('uiAlphabet').value;
+  default:
+   return 'Logic error - unexepcted value "' + value + '" in selectAlphabet.';
+ }
+}
+function selectAlphabet() {
+ var alphabet = getSelectedAlphabet();
+ byId('uiAlphabet').value = alphabet;
+ encrypt();
+}
+
+function saveBlobToFile(fileNameToSaveAs, blob) {
+ var ie = window.navigator.userAgent.match(/MSIE\s([\d.]+)/),
+  ie11 = window.navigator.userAgent.match(/Trident\/7.0/) && navigator.userAgent.match(/rv:11/),
+  ieVer = (ie ? ie[1] : (ie11 ? 11 : -1));
+
+ if (ie && ieVer < 10) {
+  window.alert('Cannot save file in Internet Explorer 9 (or earlier)')
+  return;
+ }
+
+ if (ie || ie11) { // or: if (window.navigator.appName == 'Microsoft Internet Explorer')
+  window.navigator.msSaveBlob(blob, fileNameToSaveAs);
+ } else {
+  var downloadLink = document.createElement('a');
+  downloadLink.download = fileNameToSaveAs;
+  downloadLink.innerHTML = 'Download File';
+
+  downloadLink.href = window.URL.createObjectURL(blob);
+
+ if (typeof window.URL != 'undefined') {
+   // Chrome allows the link to be clicked without actually adding it to the DOM.
+  } else {
+   // Firefox requires the link to be added to the DOM before it can be clicked.
+   downloadLink.onclick = destroyClickedElement;
+   downloadLink.style.display = 'none';
+   document.body.appendChild(downloadLink);
+  }
+
+  downloadLink.click();
+ }
+}
+
+function blobToBase64(value){
+ // using the built-in function (but removing the suffix "pad" characters)
+ return btoa(value).replace(/=/g, '');
+}
+function base64ToBlob(b64Data, contentType, sliceSize) {
+ contentType = contentType || '';
+ sliceSize = sliceSize || 512;
+
+ var byteCharacters = atob(b64Data);
+ var byteArrays = [];
+
+ for (var offset = 0; offset < byteCharacters.length; offset += sliceSize) {
+  var slice = byteCharacters.slice(offset, offset + sliceSize);
+  var byteNumbers = new Array(slice.length);
+  for (var i = 0; i < slice.length; i++) {
+   byteNumbers[i] = slice.charCodeAt(i);
+  }
+  var byteArray = new Uint8Array(byteNumbers);
+  byteArrays.push(byteArray);
+ }
+ var blob = new Blob(byteArrays, {type: contentType});
+ return blob;
+}
+
+function dumb_readAsBinaryString(file){
+ this.old_onloadend = this.onloadend;
+ function new_onloadend(){
+  var bytes = new Uint8Array(this.result);
+  var binary = '';
+  for (var i = 0; i < bytes.byteLength; i++) {
+   binary += String.fromCharCode(bytes[i]);
+  }
+  // trying to just set "this.result = binary;" doesn't work in IE, no idea why.
+  // so instead, this is a more terrible hack to let the old_onloadend run.
+  //this.result = binary;
+  var o = new Object();
+  o.result = binary;
+  o.target = this.target;
+  o.onloadend = this.old_onloadend;
+  o.onloadend();
+ }
+ this.onloadend = new_onloadend;
+ this.readAsArrayBuffer(file);
+}
+if (FileReader.prototype.readAsBinaryString == undefined)
+ FileReader.prototype.readAsBinaryString = dumb_readAsBinaryString;
+function loadendFileReader () {
+ var fileContents = this.result;
+ if (byId('uiAlphabet').value == ALPHABET_64)
+  fileContents = blobToBase64(fileContents);
+ this.target.value = fileContents;
+}
+function uploadInput() {
+ var file = byId('uiInputFile').files[0];
+ var reader = new FileReader();
+ reader.target = byId('uiInput');
+ reader.onloadend = loadendFileReader; 
+ reader.readAsBinaryString(file);
+}
+function uploadKey() {
+ var file = byId('uiKeyFile').files[0];
+ var reader = new FileReader();
+ reader.target = byId('uiKey');
+ reader.onloadend = loadendFileReader;
+ reader.readAsBinaryString(file);
+}
+function downloadOutput() {
+ var filename = (byId('uiEncrypt').checked) ? 'ciphertext.otp' : 'plaintext.otp'
+ if (byId('uiAlphabet').value == ALPHABET_64) {
+  var base64Value = byId('uiOutput').value;
+  var blob = base64ToBlob(base64Value, 'text/plain; charset=x-user-defined');
+  saveBlobToFile(filename, blob);
+ } else {
+  var textToWrite = byId('uiOutput').value;
+  var blob = new Blob([textToWrite], { type: 'text/plain' });
+  saveBlobToFile(filename, blob);
+ }
+}
+
+function toArrayOfIndexes(value, alphabet) {
+ var array = value.split('');
+ for (var i = 0 ; i < value.length ; ++i ){
+  var indexValue = alphabet.indexOf(array[i]);
+  if (indexValue == -1)
+   throw new Error('character "' + array[i] + '" was not found in the alphabet.');
+  array[i] = indexValue;
+ }
+ return array;
+}
+function fromArrayOfIndexes(array, alphabet) {
+ var tempArray = [];
+ for (var i = 0 ; i < array.length ; ++i ){
+  tempArray[i] = alphabet[array[i]];
+ }
+ return tempArray.join('');
+}
+function cipher(input, key, alphabet, encrypt) {
+ // validation
+ if (input.length > key.length)
+  throw new Error('input cannot be shorter than the key for One Time Pad encryption.');
+
+ function onlyUnique(value, index, self) { return self.indexOf(value) === index; }
+ if (alphabet.length != alphabet.split('').filter(onlyUnique).join('').length)
+  throw new Error('alphabet values are not all unique.');
+
+ // use arrays of numbers instead of operating directly on string values
+ var inputArray = toArrayOfIndexes(input, alphabet);
+ var keyArray = toArrayOfIndexes(key, alphabet);
+
+ var outputArray = [];
+ for (var i = 0 ; i < key.length ; ++i ){
+  if (encrypt) // compute the ciphertext version of this value
+   outputArray[i] = (inputArray[i] + keyArray[i]) % alphabet.length;
+  else // compute the plaintext version of this value
+   outputArray[i] = (inputArray[i] + alphabet.length - keyArray[i]) % alphabet.length;
+ }
+
+ return fromArrayOfIndexes(outputArray, alphabet);
+}
+
+function dropMethod(e) {
+ e = e || window.event; // get window.event if e argument missing (in IE)
+ if (e.preventDefault) { e.preventDefault(); } // stops the browser from redirecting off to the image.
+ var dt = e.dataTransfer;
+ var files = dt.files;
+ if (files.length > 1) {
+  e.target.value = 'Can only drop one file';
+  return;
+ }
+ var file = files[0];
+ var reader = new FileReader();
+ reader.target = e.target;
+ reader.onloadend = loadendFileReader;
+ reader.readAsBinaryString(file);
+ return false;
+}
+
+function initialize() {
+ // add event listeners
+ byId('uiInput').addEventListener('input', updateInput);
+ byId('uiKey').addEventListener('input', updateKey);
+ byId('uiGenerateKey').addEventListener('click', generateKey);
+ byId('uiAlphabet').addEventListener('input', updateAlphabet);
+ byId('uiSortAlphabet').addEventListener('click', sortAlphabet);
+ byId('uiAlphabetSet').addEventListener('change', selectAlphabet);
+ byId('uiUploadInput').addEventListener('click', uploadInput);
+ byId('uiUploadKey').addEventListener('click', uploadKey);
+ byId('uiDownloadOutput').addEventListener('click', downloadOutput);
+ // file drop handling
+ function cancel(e) { if (e.preventDefault) e.preventDefault(); return false; }
+ byId('uiInput').addEventListener('dragover', cancel);
+ byId('uiInput').addEventListener('dragenter', cancel);
+ byId('uiInput').addEventListener('drop', dropMethod);
+ byId('uiKey').addEventListener('dragover', cancel);
+ byId('uiKey').addEventListener('dragenter', cancel);
+ byId('uiKey').addEventListener('drop', dropMethod);
+
+ updateInput();
+ updateKey();
+ byId('uiAlphabetSet').selectedIndex = 1;
+ selectAlphabet();
+ encrypt();
+}
+window.addEventListener('load', initialize);
+</script>
+</html>
