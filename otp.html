@@ -37,6 +37,17 @@ Thanks to:
 
 -->
 <style>
+/* RESET BEGIN */
+body, div, dl, dt, dd, ul, ol, li, h1, h2, h3, h4, h5, h6, pre, form, fieldset, input, textarea, p, blockquote, th, td
+{ margin: 0; padding: 0; font-family: 'Verdana' , 'Arial' , 'Times New Roman'; }
+table { border-collapse: collapse; border-spacing: 0; }
+fieldset, img { border: 0; }
+address, caption, cite, code, dfn, th, var { font-style: normal; font-weight: normal; }
+caption, th { text-align: left; }
+h1, h2, h3, h4, h5, h6 { font-size: 100%; font-weight: normal; }
+q:before, q:after { content: ''; }
+abbr, acronym { border: 0; }
+/* RESET END */
 body{
  background-color: #DFDFDF;
  font-family: 'Consolas', 'Courier New', 'Lucida Console', 'Monospace';
@@ -51,6 +62,15 @@ textarea {
 body > div {
  display: inline-block;
 }
+.majorDiv {
+ padding: 5px;
+ border: 1px solid rgba(0, 0, 0, 0.5);
+ margin: 2px;
+}
+#divInput    { background-color: #DED; }
+#divAlphabet { background-color: #DDE; }
+#divKey      { background-color: #EED; }
+#divOutput   { background-color: #EDD; }
 
 .hoverable > div {
  display: none;
@@ -88,7 +108,7 @@ input[type="radio"]:checked + label {
 
 <body>
 
-<div>
+<div class="majorDiv" id="divInput">
  <span class="hoverable help"><div>
    - The Input is the original "plain text" message (to encrypt), or the encrypted message (to decrypt).
    <br/>
@@ -109,13 +129,14 @@ To demonstrate / test:
 4) paste into the Input area
 5) select Decrypt</textarea>
 </div>
-<div>
+<div class="majorDiv" id="divAlphabet">
  <label>Alphabet</label>
  <span id="uiAlphabetSize"></span> characters
+ <br/>
  <button id="uiSortAlphabet" type="button">Sort</button>
  <select id="uiAlphabetSet">
   <option value="26">Classic (26 letters)</option>
-  <option value="97">Keyboard (base 97)</option>
+  <option value="96">Keyboard (base 96)</option>
   <option value="64">MIME (base 64)</option>
   <option value="16">Hex (base 16)</option>
   <option value="10">Numeric (base 10)</option>
@@ -125,7 +146,7 @@ To demonstrate / test:
  <textarea id="uiAlphabet" rows="10" cols="50"></textarea>
 </div>
 
-<div>
+<div class="majorDiv" id="divKey">
  <span class="hoverable help"><div>
    - The Key should be a perfectly random distribution of all of the characters in the "Alphabet".
    <br/>
@@ -155,11 +176,12 @@ ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789
 This is not a secure key.
 </textarea>
 </div>
-<div>
+<div class="majorDiv" id="divOutput">
  <label>Output</label>
  <input type="radio" id="uiEncrypt" name="toEncryptOrDecrypt" onchange="encrypt();" checked="checked" /><label for="uiEncrypt">Encrypt</label>
  <input type="radio" id="uiDecrypt" name="toEncryptOrDecrypt" onchange="encrypt();" /><label for="uiDecrypt">Decrypt</label>
- <button id="uiDownloadOutput" type="button">Download</button>
+ <br/>
+ <button id="uiDownloadOutput" type="button">Save As</button>
  <br/>
  <textarea id="uiOutput" rows="10" cols="50" readonly="true"></textarea>
 </div>
@@ -215,7 +237,7 @@ function updateAlphabet() {
   case ALPHABET_26:
    byId('uiAlphabetSet').selectedIndex = 0;
    break;
-  case ALPHABET_97:
+  case ALPHABET_96:
    byId('uiAlphabetSet').selectedIndex = 1;
    break;
   case ALPHABET_64:
@@ -239,7 +261,7 @@ function sortAlphabet() {
  updateAlphabet();
 }
 var ALPHABET_26 = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
-var ALPHABET_97 = ' ABCDEFGHIJKLMNOPQRSTUVWXYZ' + '\n'
+var ALPHABET_96 = ' ABCDEFGHIJKLMNOPQRSTUVWXYZ' + '\n'
                 + '0123456789abcdefghijklmnopqrstuvwxyz!@#$%^&*()_+-=[]{}\|;:'
                 + "'" + '",.<>/?`~	';
 var ALPHABET_64 = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/';
@@ -252,8 +274,8 @@ function getSelectedAlphabet() {
  switch (selectedOptionValue) {
   case '26':
    return ALPHABET_26;
-  case '97':
-   return ALPHABET_97;
+  case '96':
+   return ALPHABET_96;
   case '64':
    return ALPHABET_64;
   case '16':
@@ -270,6 +292,7 @@ function getSelectedAlphabet() {
 function selectAlphabet() {
  var alphabet = getSelectedAlphabet();
  byId('uiAlphabet').value = alphabet;
+ byId('uiAlphabetSize').textContent = alphabet.length;
  encrypt();
 }
 
@@ -372,7 +395,7 @@ function uploadKey() {
  reader.readAsBinaryString(file);
 }
 function downloadOutput() {
- var filename = (byId('uiEncrypt').checked) ? 'ciphertext.otp' : 'plaintext.otp'
+ var filename = (byId('uiEncrypt').checked) ? 'ciphertext.otp' : 'plaintext.txt'
  if (byId('uiAlphabet').value == ALPHABET_64) {
   var base64Value = byId('uiOutput').value;
   var blob = base64ToBlob(base64Value, 'text/plain; charset=x-user-defined');
