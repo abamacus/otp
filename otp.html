@@ -297,16 +297,23 @@ function selectAlphabet() {
 }
 
 function saveBlobToFile(fileNameToSaveAs, blob) {
- var ie = window.navigator.userAgent.match(/MSIE\s([\d.]+)/),
+ var isOpera = !!window.opera || navigator.userAgent.indexOf(' OPR/') >= 0;
+     // Opera 8.0+ (UA detection to detect Blink/v8-powered Opera)
+ var isFirefox = typeof InstallTrigger !== 'undefined';   // Firefox 1.0+
+ var isSafari = Object.prototype.toString.call(window.HTMLElement).indexOf('Constructor') > 0;
+     // At least Safari 3+: "[object HTMLElementConstructor]"
+ var isChrome = !!window.chrome && !isOpera;              // Chrome 1+
+ var isIE = window.navigator.userAgent.match(/MSIE\s([\d.]+)/),
   ie11 = window.navigator.userAgent.match(/Trident\/7.0/) && navigator.userAgent.match(/rv:11/),
-  ieVer = (ie ? ie[1] : (ie11 ? 11 : -1));
-
- if (ie && ieVer < 10) {
+  //"Mozilla/4.0 (compatible; MSIE 7.0; Windows NT 6.1; WOW64; Trident/7.0; SLCC2; .NET CLR 2.0.50727; .NET CLR 3.5.30729; .NET CLR 3.0.30729; Media Center PC 6.0; .NET4.0C; .NET4.0E; InfoPath.3)"
+  ieVer = (isIE ? isIE[1] : (ie11 ? 11 : -1));
+ if (isIE && ieVer < 10) {
   window.alert('Cannot save file in Internet Explorer 9 (or earlier)')
   return;
  }
 
- if (ie || ie11) { // or: if (window.navigator.appName == 'Microsoft Internet Explorer')
+ if (isIE || ie11) { // or: if (window.navigator.appName == 'Microsoft Internet Explorer')
+  window.alert('1');
   window.navigator.msSaveBlob(blob, fileNameToSaveAs);
  } else {
   var downloadLink = document.createElement('a');
@@ -315,11 +322,10 @@ function saveBlobToFile(fileNameToSaveAs, blob) {
 
   downloadLink.href = window.URL.createObjectURL(blob);
 
- if (typeof window.URL != 'undefined') {
-   // Chrome allows the link to be clicked without actually adding it to the DOM.
-  } else {
+  if (isFirefox) {
    // Firefox requires the link to be added to the DOM before it can be clicked.
-   downloadLink.onclick = destroyClickedElement;
+   // (Chrome allows the link to be clicked without actually adding it to the DOM.)
+   downloadLink.onclick = function destroyClickedElement(event) { document.body.removeChild(event.target); }
    downloadLink.style.display = 'none';
    document.body.appendChild(downloadLink);
   }
